@@ -5,15 +5,34 @@ import socket
 import pickle
 import argparse
 import importlib
+import functools
+import re
+import inspect
 from typing import Dict, List, Tuple
 from urllib.parse import quote, unquote
 from enum import Enum
 from xmlrpc.client import ServerProxy
-from subprocess import Popen, CREATE_NEW_CONSOLE
+from subprocess import Popen
 
 import majsoul_wrapper as sdk
 from majsoul_wrapper import all_tiles, Operation
 
+
+PRINT_LOG = True  # whether print args when enter handler
+
+def dump_args(func):
+    #Decorator to print function call details - parameters names and effective values.
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if PRINT_LOG:
+            func_args = inspect.signature(func).bind(*args, **kwargs).arguments
+            func_args_str = ', '.join('{} = {!r}'.format(*item)
+                                      for item in func_args.items())
+            func_args_str = re.sub(r' *self.*?=.*?, *', '', func_args_str)
+            #print(f'{func.__module__}.{func.__qualname__} ( {func_args_str} )')
+            print(f'{func.__name__} ({func_args_str})')
+        return func(*args, **kwargs)
+    return wrapper
 
 class State(Enum):  # 控制AI进程与Majsoul进程同步
     WaitingForStart = 0
@@ -67,8 +86,8 @@ class CardRecorder:
 class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
     # TenHouAI <-> AI_Wrapper <-> Majsoul Interface
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, webdriver_args=[]):
+        super().__init__(chrome_arguments=webdriver_args)
         self.AI_socket = None
         # 与Majsoul的通信
         self.majsoul_server = ServerProxy(
@@ -214,6 +233,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         self.AI_state = State.Playing
     #-------------------------Majsoul回调函数-------------------------
 
+    @dump_args
     def newRound(self, chang: int, ju: int, ben: int, liqibang: int, tiles: List[str], scores: List[int], leftTileCount: int, doras: List[str]):
         """
         chang:当前的场风，0~3:东南西北
@@ -256,6 +276,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
             # operation TODO
             self.iDealTile(self.mySeat, tiles[13], leftTileCount, {}, {})
 
+    @dump_args
     def newDora(self, dora: str):
         """
         处理discardTile/dealTile中通知增加明宝牌的信息
@@ -263,6 +284,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         tile136, _ = self.cardRecorder.majsoul2tenhou(dora)
         self.send(self.tenhouEncode({'opcode': 'DORA', 'hai': tile136}))
 
+    @dump_args
     def discardTile(self, seat: int, tile: str, moqie: bool, isLiqi: bool, operation):
         """
         seat:打牌的玩家
@@ -313,6 +335,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         self.lastOperation = operation
         #operation TODO
 
+    @dump_args
     def dealTile(self, seat: int, leftTileCount: int, liqi: Dict):
         """
         seat:摸牌的玩家
@@ -331,6 +354,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         op = 'UVW'[(seat-self.mySeat-1) % 4]
         self.send(('<'+op+'/>\x00').encode())
 
+    @dump_args
     def iDealTile(self, seat: int, tile: str, leftTileCount: int, liqi: Dict, operation: Dict):
         """
         seat:我自己
@@ -365,6 +389,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
                 msg_dict['t'] = 32  # 立直
         self.send(self.tenhouEncode(msg_dict))
 
+    @dump_args
     def chiPengGang(self, type_: int, seat: int, tiles: List[str], froms: List[int], tileStates: List[int]):
         """
         type_:操作类型
@@ -446,6 +471,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         msg_dict = {'opcode': 'N', 'who': tenhou_seat, 'm': m}
         self.send(self.tenhouEncode(msg_dict))
 
+    @dump_args
     def anGangAddGang(self, type_: int, seat: int, tiles: str):
         """
         type_:操作类型
@@ -492,6 +518,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         msg_dict = {'opcode': 'N', 'who': tenhou_seat, 'm': m}
         self.send(self.tenhouEncode(msg_dict))
 
+    @dump_args
     def hule(self, hand: List[str], huTile: str, seat: int, zimo: bool, liqi: bool, doras: List[str], liDoras: List[str], fan: int, fu: int, oldScores: List[int], deltaScores: List[int], newScores: List[int]):
         """
         hand:胡牌者手牌
@@ -539,6 +566,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         self.send(self.tenhouEncode(msg_dict))
         self.AI_state = State.WaitingForStart
 
+    @dump_args
     def liuju(self, tingpai: List[bool], hands: List[List[str]], oldScores: List[int], deltaScores: List[int]):
         """
         tingpai:4个玩家是否停牌
@@ -580,11 +608,12 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         if dt < delay:
             time.sleep(delay-dt)
 
+    @dump_args
     def on_DiscardTile(self, msg_dict):
         if self.wait_a_moment:
             self.wait_a_moment = False
-            time.sleep(4)
-        self.wait_for_a_while()
+            time.sleep(1)
+        # self.wait_for_a_while()
         self.lastOp = msg_dict
         assert(msg_dict['opcode'] == 'D')
         tile = self.cardRecorder.tenhou2majsoul(tile136=int(msg_dict['p']))
@@ -592,6 +621,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
             self.forceTiaoGuo()
             self.actionDiscardTile(tile)
 
+    @dump_args
     def on_ChiPengGang(self, msg_dict):
         # <N ...\>
         self.wait_for_a_while()
@@ -634,7 +664,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
                     if oc in combination:
                         AI_combination = oc
                     print('clickCandidateMeld AI_combination', AI_combination)
-                    time.sleep(2)
+                    time.sleep(1)
                     self.clickCandidateMeld(AI_combination)
         elif type_ == 4:
             #暗杠
@@ -651,6 +681,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         else:
             raise NotImplementedError
 
+    @dump_args
     def on_Liqi(self, msg_dict):
         self.wait_for_a_while()
         self.isLiqi = True
@@ -659,10 +690,10 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         self.actionLiqi(tile)
 
 
-def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None):
+def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_args=[]):
     # 循环进行段位场对局，level=0~4表示铜/银/金/玉/王之间，None需手动开始游戏
     # calibrate browser position
-    aiWrapper = AIWrapper()
+    aiWrapper = AIWrapper(webdriver_args=webdriver_args)
     print('waiting to calibrate the browser location')
     while not aiWrapper.calibrateMenu():
         print('  majsoul menu not found, calibrate again')
@@ -672,8 +703,7 @@ def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None):
         # create AI
         if isRemoteMode == False:
             print('create AI subprocess locally')
-            AI = Popen('python main.py --fake', cwd='JianYangAI',
-                       creationflags=CREATE_NEW_CONSOLE)
+            AI = Popen('python main.py --fake', cwd='JianYangAI', shell=True)
             # create server
             server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             server_address = ('127.0.0.1', 7479)
@@ -737,11 +767,19 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="MajsoulAI")
     parser.add_argument('-r', '--remote_ip', default='')
     parser.add_argument('-l', '--level', default=None)
+    parser.add_argument('-p', '--profile-directory', default=None)
+    parser.add_argument('-u', '--user-data-dir', default=None)
     args = parser.parse_args()
     level = None if args.level == None else int(args.level)
+    webdriver_args = []
+    if args.profile_directory is not None:
+        webdriver_args.append('--profile-directory='+args.profile_directory)
+    if args.user_data_dir is not None:
+        webdriver_args.append('--user-data-dir='+args.user_data_dir)
+
     if args.remote_ip == '':
         #本地AI模式
-        MainLoop(level=level)
+        MainLoop(level=level, webdriver_args=webdriver_args)
     else:
         #远程AI模式
-        MainLoop(isRemoteMode=True, remoteIP=args.remote_ip, level=level)
+        MainLoop(isRemoteMode=True, remoteIP=args.remote_ip, level=level, webdriver_args=webdriver_args)
