@@ -89,6 +89,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
     def __init__(self, webdriver_args=[]):
         super().__init__(chrome_arguments=webdriver_args)
         self.AI_socket = None
+        self.msg_file = None
         # 与Majsoul的通信
         self.majsoul_server = ServerProxy(
             "http://127.0.0.1:37247")   # 初始化RPC服务器
@@ -96,7 +97,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         # 牌号转换
         self.cardRecorder = CardRecorder()
 
-    def init(self, socket_: socket.socket):
+    def init(self, socket_: socket.socket, dump_file=None):
         # 设置与AI的socket链接并初始化
         self.AI_socket = socket_
         self.AI_buffer = bytes(0)
@@ -114,6 +115,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         self.lastSendTime = time.time()  # 防止操作过快
         self.pengInfo = dict()          # 记录当前碰的信息，以维护加杠时的一致性
         self.lastOperation = None       # 用于判断吃碰是否需要二次选择
+        self.dump_file = dump_file
 
     def isPlaying(self) -> bool:
         # 从majsoul websocket中获取数据，并判断数据流是否为对局中
@@ -159,6 +161,10 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
             data = data.encode()
         print('send:', data)
         self.AI_socket.send(data)
+        if self.dump_file:
+            self.dump_file.write(data.decode())
+            self.dump_file.write('\n')
+            self.dump_file.flush()
         self.lastSendTime = time.time()
 
     def _eventHandler(self, msg):
@@ -690,14 +696,10 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         self.actionLiqi(tile)
 
 
-def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_args=[]):
+def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_args=[], dump_file=None):
     # 循环进行段位场对局，level=0~4表示铜/银/金/玉/王之间，None需手动开始游戏
     # calibrate browser position
     aiWrapper = AIWrapper(webdriver_args=webdriver_args)
-    print('waiting to calibrate the browser location')
-    while not aiWrapper.calibrateMenu():
-        print('  majsoul menu not found, calibrate again')
-        time.sleep(3)
 
     while True:
         # create AI
@@ -723,8 +725,18 @@ def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_arg
             ACK = connection.recv(3)
             assert(ACK == b'ACK')
             print('remote AI connection: ', connection, remoteIP)
+        
+        if dump_file:
+            dump_file_handler = open(dump_file, 'a')
+        else:
+            dump_file_handler = None
 
-        aiWrapper.init(connection)
+        print('waiting to calibrate the browser location')
+        while not aiWrapper.calibrateMenu():
+            print('  majsoul menu not found, calibrate again')
+            time.sleep(3)
+
+        aiWrapper.init(connection, dump_file=dump_file_handler)
         inputs = [connection]
         outputs = []
 
@@ -757,6 +769,8 @@ def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_arg
                 aiWrapper.send('owari="{},{},{},{},{},{},{},{}"\x00<PROF\x00'.format(*results))
                 aiWrapper.isEnd = False
                 connection.close()
+                if dump_file_handler:
+                    dump_file_handler.close()
                 if isRemoteMode == False:
                     AI.wait()
                 aiWrapper.actionReturnToMenu()
@@ -769,6 +783,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--level', default=None)
     parser.add_argument('-p', '--profile-directory', default=None)
     parser.add_argument('-u', '--user-data-dir', default=None)
+    parser.add_argument('-d', '--dump-file', default=None)
     args = parser.parse_args()
     level = None if args.level == None else int(args.level)
     webdriver_args = []
@@ -779,7 +794,7 @@ if __name__ == '__main__':
 
     if args.remote_ip == '':
         #本地AI模式
-        MainLoop(level=level, webdriver_args=webdriver_args)
+        MainLoop(level=level, webdriver_args=webdriver_args, dump_file=args.dump_file)
     else:
         #远程AI模式
-        MainLoop(isRemoteMode=True, remoteIP=args.remote_ip, level=level, webdriver_args=webdriver_args)
+        MainLoop(isRemoteMode=True, remoteIP=args.remote_ip, level=level, webdriver_args=webdriver_args, dump_file=args.dump_file)
