@@ -4,3 +4,6 @@
 [submodule "majsoul_wrapper"]
 	path = majsoul_wrapper
 	url = git@github.com:housq/majsoul_wrapper.git
+[submodule "VLOG_Majsoul"]
+	path = VLOG_Majsoul
+	url = git@github.com:FrostHan/VLOG_Majsoul.git
