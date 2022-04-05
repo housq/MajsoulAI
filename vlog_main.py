@@ -33,8 +33,34 @@ def dump_args(func):
             func_args_str = re.sub(r' *self.*?=.*?, *', '', func_args_str)
             #print(f'{func.__module__}.{func.__qualname__} ( {func_args_str} )')
             print(f'{func.__name__} ({func_args_str})')
-        return func(*args, **kwargs)
+        start = time.time()
+        r = func(*args, **kwargs)
+        end = time.time()
+        time_used = end - start
+        if PRINT_LOG and time_used > 0.5:
+            print(f'{func.__name__} time_used = {time_used}')
+        return r
     return wrapper
+
+def log_time(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if PRINT_LOG:
+            func_args = inspect.signature(func).bind(*args, **kwargs).arguments
+            func_args_str = ', '.join('{} = {!r}'.format(*item)
+                                      for item in func_args.items())
+            func_args_str = re.sub(r' *self.*?=.*?, *', '', func_args_str)
+            #print(f'{func.__module__}.{func.__qualname__} ( {func_args_str} )')
+            #print(f'{func.__name__} ({func_args_str})')
+        start = time.time()
+        r = func(*args, **kwargs)
+        end = time.time()
+        time_used = end - start
+        if PRINT_LOG and time_used > 0.5:
+            print(f'{func.__name__} time_used = {time_used}')
+        return r
+    return wrapper
+
 
 class State(Enum):  # 控制AI进程与Majsoul进程同步
     WaitingForStart = 0
@@ -123,6 +149,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         self.lastOperation = None       # 用于判断吃碰是否需要二次选择
         # tenhou proto dump文件
         self.dump_file = dump_file
+        self.need_action = False
 
     def isPlaying(self) -> bool:
         # 从majsoul websocket中获取数据，并判断数据流是否为对局中
@@ -156,9 +183,9 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
 
     def send(self, data: bytes):
         #向AI发送tenhou proto数据
-        print('send:', data)
         if type(data) == bytes:
             data = data.decode()
+        print('send:', data)
         if self.dump_file:
             self.dump_file.write(data)
             self.dump_file.write('\n')
@@ -168,7 +195,26 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
 
     @dump_args
     def actionHandler(self, riichi_candidates=[], can_ron=False, can_tsumo=False, can_push=False):
+        self.need_action = True
+        self.riichi_candidates = riichi_candidates
+        self.can_ron = can_ron
+        self.can_tsumo = can_tsumo
+        self.can_push = can_push
+        pass
+
+    def actionGet(self):
+        assert(self.need_action)
+        self.need_action = False
+        return self.action(riichi_candidates=self.riichi_candidates, can_ron=self.can_ron, 
+            can_tsumo=self.can_tsumo, can_push=self.can_push)
+
+    @dump_args
+    def action(self, riichi_candidates=[], can_ron=False, can_tsumo=False, can_push=False):
         action_id, if_riichi = self.AI.make_decision(riichi_candidates, can_ron=can_ron, can_tsumo=can_tsumo, can_push = can_push)
+        return action_id, if_riichi
+
+
+    def actionDo(self,action_id, if_riichi):
         if if_riichi:
             # 立直
             self.on_Liqi(tile34=action_id)
@@ -179,7 +225,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
             # 立直action 不会被返回
             print(action_id)
             raise NotImplementedError()
-        elif action_id > 34 and action_id <= 45:
+        elif action_id >= 34 and action_id <= 45:
             # 回应吃碰杠等
             self.on_ChiPengGang(action_id)
         else:
@@ -701,7 +747,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
                 if len(combination) > 1:
                     # 需要二次选择
                     # picked up tile
-                    chiTile = self.lastOperation['tile']
+                    chiTile = self.cardRecorder.tenhou2majsoul(tile136=self.lastTile)
                     # change aka to normal order
                     chiOrder = int(chiTile[0])
                     chiType = chiTile[1]
@@ -751,7 +797,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         self.majsoul_hai = [self.cardRecorder.tenhou2majsoul(tile136=x) for x in self.hai]
         if tile in ['5m', '5p', '5s'] and tile not in self.majsoul_hai:
             tile = '0' + tile[1]
-        assert(tile not in self.majsoul_hai)
+        assert(tile in self.majsoul_hai)
         self.actionLiqi(tile)
 
 
@@ -783,7 +829,13 @@ def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_arg
             time.sleep(3)
         
         while True:
+            aiWrapper.need_action = False
             aiWrapper.recvFromMajsoul()
+            time.sleep(0.2)
+            if aiWrapper.need_action:
+                action_id, if_riichi = aiWrapper.actionGet()
+                aiWrapper.recvFromMajsoul()
+                aiWrapper.actionDo(action_id, if_riichi)
             if aiWrapper.isEnd:
                 results = [rv for r in zip(aiWrapper.finalScore, [-1]*4) for rv in r]
                 aiWrapper.send('owari="{},{},{},{},{},{},{},{}"\x00<PROF\x00'.format(*results))
