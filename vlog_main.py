@@ -368,7 +368,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
             assert(tile136!=None)
         else:
             tile136, _ = self.cardRecorder.majsoul2tenhou(tile)
-        if moqie and op != 'D':
+        if moqie:
             op = op.lower()
         msg_dict = {'opcode': op+str(tile136)}
         if operation != None:
