@@ -18,6 +18,8 @@ import numpy as np
 
 import majsoul_wrapper as sdk
 from majsoul_wrapper import all_tiles, Operation
+from datetime import datetime
+
 
 
 PRINT_LOG = True  # whether print args when enter handler
@@ -801,12 +803,13 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         self.actionLiqi(tile)
 
 
-def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_args=[], dump_file=None):
+def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_args=[], dump_file=None, agent_save_path=None):
     # 循环进行段位场对局，level=0~4表示铜/银/金/玉/王之间，None需手动开始游戏
     # calibrate browser position
     aiWrapper = AIWrapper(webdriver_args=webdriver_args)
 
     # create AI
+    now = datetime.now()
     AI = MajsoulVLOG('VLOG_Majsoul/mahjong_VLOG_CQL.pth')
     while True:
         if dump_file:
@@ -844,6 +847,10 @@ def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_arg
                     dump_file_handler.close()
                 aiWrapper.actionReturnToMenu()
                 break
+        if agent_save_path:
+            AI.save_data(agent_save_path)
+        else:
+            AI.save_data('agent {}.pth'.format(datetime))
 
 
 if __name__ == '__main__':
@@ -852,6 +859,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--profile-directory', default=None)
     parser.add_argument('-u', '--user-data-dir', default=None)
     parser.add_argument('-d', '--dump-file', default=None)
+    parser.add_argument('-a', '--agent-save-path', default=None)
     args = parser.parse_args()
     level = None if args.level == None else int(args.level)
     webdriver_args = []
@@ -860,4 +868,4 @@ if __name__ == '__main__':
     if args.user_data_dir is not None:
         webdriver_args.append('--user-data-dir='+args.user_data_dir)
 
-    MainLoop(level=level, webdriver_args=webdriver_args, dump_file=args.dump_file)
+    MainLoop(level=level, webdriver_args=webdriver_args, dump_file=args.dump_file, agent_save_path=args.agent_save_path)
