@@ -850,7 +850,7 @@ def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_arg
         if agent_save_path:
             AI.save_data(agent_save_path)
         else:
-            AI.save_data('agent {}.pth'.format(datetime))
+            AI.save_data('agent {}.pth'.format(str(now)))
 
 
 if __name__ == '__main__':
