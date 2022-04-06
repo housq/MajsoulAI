@@ -749,7 +749,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
                 if len(combination) > 1:
                     # 需要二次选择
                     # picked up tile
-                    chiTile = self.cardRecorder.tenhou2majsoul(tile136=self.lastTile)
+                    chiTile = self.cardRecorder.tenhou2majsoul(tile136=self.lastDiscard)
                     # change aka to normal order
                     chiOrder = int(chiTile[0])
                     chiType = chiTile[1]
