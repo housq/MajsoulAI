@@ -697,7 +697,6 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
             tile = '0' + tile[1]
         assert(tile in self.majsoul_hai)
         if not self.isLiqi:
-            self.forceTiaoGuo()
             self.actionDiscardTile(tile)
 
     @dump_args
