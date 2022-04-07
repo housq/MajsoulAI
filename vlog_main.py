@@ -678,7 +678,6 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
 
     #-------------------------Majsoul动作函数-------------------------
 
-    def wait_for_a_while(self, delay=0.5):
     def wait_for_a_while(self, delay=1.0):
         # 如果读秒不足delay则强行等待一会儿
         dt = time.time()-self.lastSendTime
