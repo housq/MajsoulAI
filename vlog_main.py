@@ -679,6 +679,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
     #-------------------------Majsoul动作函数-------------------------
 
     def wait_for_a_while(self, delay=0.5):
+    def wait_for_a_while(self, delay=1.0):
         # 如果读秒不足delay则强行等待一会儿
         dt = time.time()-self.lastSendTime
         if dt < delay:
@@ -793,7 +794,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
 
     @dump_args
     def on_Liqi(self, tile34):
-        self.wait_for_a_while()
+        self.wait_for_a_while(3.0)
         # TODO set liqi status from self discard tile
         self.isLiqi = True
         tile = self.cardRecorder.tenhou2majsoul(tile34=int(tile34))
