@@ -688,7 +688,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         if self.wait_a_moment:
             self.wait_a_moment = False
             time.sleep(1)
-        # self.wait_for_a_while()
+        self.wait_for_a_while()
         self.lastOp = {'opcode': 'D'}
         tile = self.cardRecorder.tenhou2majsoul(tile34=int(tile34))
         self.majsoul_hai = [self.cardRecorder.tenhou2majsoul(tile136=x) for x in self.hai]
