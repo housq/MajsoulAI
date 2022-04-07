@@ -439,6 +439,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         riichi_candidates = []
         if operation != None:
             opList = operation.get('operationList', [])
+            need_action = (not self.isLiqi) or (len(opList) > 0)
             canJiaGang = any(
                 op['type'] == Operation.JiaGang.value for op in opList)
             canLiqi = any(op['type'] == Operation.Liqi.value for op in opList)
@@ -459,7 +460,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
                     if tile34 not in riichi_candidates:
                         riichi_candidates.append(tile34)
         self.send(self.tenhouEncode(msg_dict))
-        if operation != None:
+        if operation != None and need_action:
             self.actionHandler(riichi_candidates=riichi_candidates, can_ron=canHu, can_tsumo=canZimo, can_push=False)
 
     @dump_args
@@ -677,7 +678,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
 
     #-------------------------Majsoul动作函数-------------------------
 
-    def wait_for_a_while(self, delay=2.0):
+    def wait_for_a_while(self, delay=1.0):
         # 如果读秒不足delay则强行等待一会儿
         dt = time.time()-self.lastSendTime
         if dt < delay:
@@ -687,7 +688,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
     def on_DiscardTile(self, tile34):
         if self.wait_a_moment:
             self.wait_a_moment = False
-            time.sleep(1)
+            time.sleep(2)
         self.wait_for_a_while()
         self.lastOp = {'opcode': 'D'}
         tile = self.cardRecorder.tenhou2majsoul(tile34=int(tile34))
@@ -792,7 +793,8 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
 
     @dump_args
     def on_Liqi(self, tile34):
-        self.wait_for_a_while()
+        self.wait_for_a_while(3.0)
+        # TODO set liqi status from self discard tile
         self.isLiqi = True
         tile = self.cardRecorder.tenhou2majsoul(tile34=int(tile34))
         self.majsoul_hai = [self.cardRecorder.tenhou2majsoul(tile136=x) for x in self.hai]
