@@ -5,3 +5,4 @@ PyAutoGUI>=0.9.52
 scipy>=1.5.4
 selenium>=3.141.0
 scikit-learn==0.22
+mahjong
