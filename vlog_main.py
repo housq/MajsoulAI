@@ -703,7 +703,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
     @dump_args
     def on_ChiPengGang(self, action_id):
         # <N ...\>
-        self.wait_for_a_while()
+        self.wait_for_a_while(3.0)
         if action_id == 45:
             #无操作
             self.actionChiPengGang(sdk.Operation.NoEffect, [])
