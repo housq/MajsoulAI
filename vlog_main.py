@@ -835,7 +835,7 @@ def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_arg
         while True:
             aiWrapper.need_action = False
             aiWrapper.recvFromMajsoul()
-            time.sleep(0.2)
+            time.sleep(0.4)
             if aiWrapper.need_action:
                 action_id, if_riichi = aiWrapper.actionGet()
                 aiWrapper.recvFromMajsoul()
