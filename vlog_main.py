@@ -763,7 +763,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
                         tile2 = str(chiOrder + 1) + chiType
                     else:
                         tile1 = str(chiOrder - 2) + chiType
-                        tile1 = str(chiOrder - 1) + chiType
+                        tile2 = str(chiOrder - 1) + chiType
                     combination = [tuple(sorted(c.split('|')))
                                    for c in combination]
                     AI_combination = tuple(sorted([tile1, tile2]))
