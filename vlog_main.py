@@ -708,7 +708,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         if self.wait_a_moment:
             self.wait_a_moment = False
             time.sleep(2)
-        self.wait_for_a_while()
+        self.wait_for_a_while(0.3)
         self.lastOp = {'opcode': 'D'}
         tile = self.cardRecorder.tenhou2majsoul(tile34=int(tile34))
         self.majsoul_hai = [self.cardRecorder.tenhou2majsoul(tile136=x) for x in self.hai]
@@ -851,7 +851,6 @@ def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_arg
         while True:
             aiWrapper.need_action = False
             aiWrapper.recvFromMajsoul()
-            time.sleep(0.25)
             if aiWrapper.need_action:
                 action_id, if_riichi = aiWrapper.actionGet()
                 aiWrapper.actionDo(action_id, if_riichi)
@@ -863,6 +862,7 @@ def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_arg
                     dump_file_handler.close()
                 aiWrapper.actionReturnToMenu()
                 break
+            time.sleep(0.25)
         if agent_save_path:
             AI.save_data(agent_save_path)
         else:
