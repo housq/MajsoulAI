@@ -820,7 +820,8 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         self.actionLiqi(tile)
 
 
-def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_args=[], dump_file=None, agent_save_path=None, model_path=None):
+def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, length=0, webdriver_args=[], 
+    dump_file=None, agent_save_path=None, model_path=None):
     # 循环进行段位场对局，level=0~4表示铜/银/金/玉/王之间，None需手动开始游戏
     # calibrate browser position
     aiWrapper = AIWrapper(webdriver_args=webdriver_args)
@@ -842,7 +843,7 @@ def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_arg
         aiWrapper.init(AI, dump_file=dump_file_handler)
 
         if level != None:
-            aiWrapper.actionBeginGame(level)
+            aiWrapper.actionBeginGame(level, length=length)
 
         print('waiting for the game to start')
         while not aiWrapper.isPlaying():
@@ -877,12 +878,14 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dump-file', default=None)
     parser.add_argument('-a', '--agent-save-path', default=None)
     parser.add_argument('-m', '--model', default=None)
+    parser.add_argument('-L', '--len', default=None)
     args = parser.parse_args()
     level = None if args.level == None else int(args.level)
+    length = 0 if args.length == None else int(args.length)
     webdriver_args = []
     if args.profile_directory is not None:
         webdriver_args.append('--profile-directory='+args.profile_directory)
     if args.user_data_dir is not None:
         webdriver_args.append('--user-data-dir='+args.user_data_dir)
 
-    MainLoop(level=level, webdriver_args=webdriver_args, dump_file=args.dump_file, agent_save_path=args.agent_save_path, model_path=args.model)
+    MainLoop(level=level, length=length, webdriver_args=webdriver_args, dump_file=args.dump_file, agent_save_path=args.agent_save_path, model_path=args.model)
