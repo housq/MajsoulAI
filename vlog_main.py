@@ -160,6 +160,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         while retry > 0:
             try:
                 n = self.majsoul_server.get_len()
+                break
             except:
                 retry -= 1
                 print("retry get_len") 
@@ -181,6 +182,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         while retry > 0:
             try:
                 n = self.majsoul_server.get_len()
+                break
             except:
                 retry -= 1
                 print("retry get_len") 
