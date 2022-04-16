@@ -155,7 +155,14 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
 
     def isPlaying(self) -> bool:
         # 从majsoul websocket中获取数据，并判断数据流是否为对局中
-        n = self.majsoul_server.get_len()
+        retry = 3
+        n = 0
+        while retry > 0:
+            try:
+                n = self.majsoul_server.get_len()
+            except:
+                retry -= 1
+                print("retry get_len") 
         liqiProto = sdk.LiqiProto()
         if n == 0:
             return False
@@ -169,7 +176,14 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
     def recvFromMajsoul(self):
         # 从majsoul websocket中获取数据，并尝试解析执行。
         # 如果未达到要求无法执行则锁定self.majsoul_msg_p直到下一次尝试。
-        n = self.majsoul_server.get_len()
+        retry = 3
+        n = 0
+        while retry > 0:
+            try:
+                n = self.majsoul_server.get_len()
+            except:
+                retry -= 1
+                print("retry get_len") 
         l = len(self.majsoul_history_msg)
         if l < n:
             flow = pickle.loads(self.majsoul_server.get_items(l, n).data)
@@ -185,6 +199,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
 
     def send(self, data: bytes):
         #向AI发送tenhou proto数据
+        self.need_action = False
         if type(data) == bytes:
             data = data.decode()
         print('send:', data)
@@ -206,7 +221,6 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
 
     def actionGet(self):
         assert(self.need_action)
-        self.need_action = False
         return self.action(riichi_candidates=self.riichi_candidates, can_ron=self.can_ron, 
             can_tsumo=self.can_tsumo, can_push=self.can_push)
 
@@ -233,6 +247,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         else:
             print(action_id)
             raise NotImplementedError()
+        self.need_action = False
             
 
     def tenhouDecode(self, msg: str) -> Dict:  # get tenhou protocol msg
@@ -357,6 +372,8 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
             msg_dict = {'opcode': 'REACH', 'who': (
                 seat-self.mySeat) % 4, 'step': 1}
             self.send(self.tenhouEncode(msg_dict))
+            if seat == self.mySeat:
+                self.isLiqi = True
         op = 'DEFG'[(seat-self.mySeat) % 4]
         if op == 'D' and self.lastOp['opcode'] == 'D':
             tile136=None
@@ -703,7 +720,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
     @dump_args
     def on_ChiPengGang(self, action_id):
         # <N ...\>
-        self.wait_for_a_while(3.0)
+        self.wait_for_a_while(2.0)
         if action_id == 45:
             #无操作
             self.actionChiPengGang(sdk.Operation.NoEffect, [])
@@ -714,7 +731,6 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
             return 
         if action_id == 37:
             #碰
-            # TODO 有aka的时候二次选择
             self.actionChiPengGang(sdk.Operation.Peng, [])
             if self.lastOperation != None:
                 opList = self.lastOperation.get('operationList', [])
@@ -793,9 +809,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
 
     @dump_args
     def on_Liqi(self, tile34):
-        self.wait_for_a_while(3.0)
-        # TODO set liqi status from self discard tile
-        self.isLiqi = True
+        self.wait_for_a_while(2.0)
         tile = self.cardRecorder.tenhou2majsoul(tile34=int(tile34))
         self.majsoul_hai = [self.cardRecorder.tenhou2majsoul(tile136=x) for x in self.hai]
         if tile in ['5m', '5p', '5s'] and tile not in self.majsoul_hai:
@@ -810,7 +824,7 @@ def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_arg
     aiWrapper = AIWrapper(webdriver_args=webdriver_args)
 
     # create AI
-    now = datetime.now()
+    now = int(datetime.timestamp(datetime.now()))
     AI = MajsoulVLOG(model_path)
     while True:
         if dump_file:
@@ -835,10 +849,9 @@ def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_arg
         while True:
             aiWrapper.need_action = False
             aiWrapper.recvFromMajsoul()
-            time.sleep(0.4)
+            time.sleep(0.25)
             if aiWrapper.need_action:
                 action_id, if_riichi = aiWrapper.actionGet()
-                aiWrapper.recvFromMajsoul()
                 aiWrapper.actionDo(action_id, if_riichi)
             if aiWrapper.isEnd:
                 results = [rv for r in zip(aiWrapper.finalScore, [-1]*4) for rv in r]
@@ -851,7 +864,7 @@ def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, webdriver_arg
         if agent_save_path:
             AI.save_data(agent_save_path)
         else:
-            AI.save_data('agent {}.pth'.format(str(now)))
+            AI.save_data('agent{}.pth'.format(str(now)))
 
 
 if __name__ == '__main__':
