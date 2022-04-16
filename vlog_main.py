@@ -878,7 +878,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dump-file', default=None)
     parser.add_argument('-a', '--agent-save-path', default=None)
     parser.add_argument('-m', '--model', default=None)
-    parser.add_argument('-L', '--len', default=None)
+    parser.add_argument('-L', '--length', default=None)
     args = parser.parse_args()
     level = None if args.level == None else int(args.level)
     length = 0 if args.length == None else int(args.length)
