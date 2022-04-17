@@ -141,7 +141,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         self.majsoul_msg_p = 0  # 当前准备解析的消息下标
         self.liqiProto.init()
         # AI上一次input操作的msg_dict(维护tile136一致性)
-        self.lastOp = self.tenhouEncode({'opcode': None})
+        self.lastOp = {'opcode': None}
         self.lastDiscard = None         # 牌桌最后一次出牌tile136，用于吃碰杠牌号
         self.hai = []                   # 我当前手牌的tile136编号(和AI一致)
         self.isLiqi = False             # 当前是否处于立直状态
