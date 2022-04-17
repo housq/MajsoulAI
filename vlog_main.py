@@ -122,7 +122,7 @@ class CardRecorder:
 class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
     # TenHouAI <-> AI_Wrapper <-> Majsoul Interface
 
-    def __init__(self, webdriver_args=[]):
+    def __init__(self, webdriver_args=[], force_riichi=False):
         super().__init__(chrome_arguments=webdriver_args)
         self.AI_socket = None
         self.msg_file = None
@@ -132,6 +132,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         self.liqiProto = sdk.LiqiProto()
         # 牌号转换
         self.cardRecorder = CardRecorder()
+        self.force_riichi = force_riichi
 
     def init(self, AI: MajsoulVLOG, dump_file=None):
         # 设置与AI的socket链接并初始化
@@ -224,7 +225,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
     def actionGet(self):
         assert(self.need_action)
         return self.action(riichi_candidates=self.riichi_candidates, can_ron=self.can_ron, 
-            can_tsumo=self.can_tsumo, can_push=self.can_push)
+            can_tsumo=self.can_tsumo, can_push=self.can_push, force_riichi=self.force_riichi)
 
     @dump_args
     def action(self, riichi_candidates=[], can_ron=False, can_tsumo=False, can_push=False):
@@ -821,10 +822,10 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
 
 
 def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, length=0, webdriver_args=[], 
-    dump_file=None, agent_save_path=None, model_path=None):
+    dump_file=None, agent_save_path=None, model_path=None, force_riichi=False):
     # 循环进行段位场对局，level=0~4表示铜/银/金/玉/王之间，None需手动开始游戏
     # calibrate browser position
-    aiWrapper = AIWrapper(webdriver_args=webdriver_args)
+    aiWrapper = AIWrapper(webdriver_args=webdriver_args, force_riichi=force_riichi)
 
     # create AI
     now = int(datetime.timestamp(datetime.now()))
@@ -879,6 +880,8 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--agent-save-path', default=None)
     parser.add_argument('-m', '--model', default=None)
     parser.add_argument('-L', '--length', default=None)
+    parser.add_argument('-f', '--force-riichi', action='store_true')
+    parser.set_defaults(force_riichi=False)
     args = parser.parse_args()
     level = None if args.level == None else int(args.level)
     length = 0 if args.length == None else int(args.length)
@@ -888,4 +891,4 @@ if __name__ == '__main__':
     if args.user_data_dir is not None:
         webdriver_args.append('--user-data-dir='+args.user_data_dir)
 
-    MainLoop(level=level, length=length, webdriver_args=webdriver_args, dump_file=args.dump_file, agent_save_path=args.agent_save_path, model_path=args.model)
+    MainLoop(level=level, length=length, webdriver_args=webdriver_args, dump_file=args.dump_file, agent_save_path=args.agent_save_path, model_path=args.model, force_riichi=force_riichi)
