@@ -891,4 +891,4 @@ if __name__ == '__main__':
     if args.user_data_dir is not None:
         webdriver_args.append('--user-data-dir='+args.user_data_dir)
 
-    MainLoop(level=level, length=length, webdriver_args=webdriver_args, dump_file=args.dump_file, agent_save_path=args.agent_save_path, model_path=args.model, force_riichi=force_riichi)
+    MainLoop(level=level, length=length, webdriver_args=webdriver_args, dump_file=args.dump_file, agent_save_path=args.agent_save_path, model_path=args.model, force_riichi=args.force_riichi)
