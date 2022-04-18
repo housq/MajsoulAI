@@ -225,11 +225,12 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
     def actionGet(self):
         assert(self.need_action)
         return self.action(riichi_candidates=self.riichi_candidates, can_ron=self.can_ron, 
-            can_tsumo=self.can_tsumo, can_push=self.can_push, force_riichi=self.force_riichi)
+            can_tsumo=self.can_tsumo, can_push=self.can_push)
 
     @dump_args
     def action(self, riichi_candidates=[], can_ron=False, can_tsumo=False, can_push=False):
-        action_id, if_riichi = self.AI.make_decision(riichi_candidates, can_ron=can_ron, can_tsumo=can_tsumo, can_push = can_push)
+        action_id, if_riichi = self.AI.make_decision(riichi_candidates, can_ron=can_ron, 
+            can_tsumo=can_tsumo, can_push = can_push, force_riichi=self.force_riichi)
         return action_id, if_riichi
 
 
