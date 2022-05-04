@@ -867,7 +867,7 @@ def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, length=0, web
             aiWrapper.actionBeginGame(level, length=length)
 
         print('waiting for the game to start')
-        while aiWrapper.recvFromMajsoul() != State.Start:
+        while not aiWrapper.isPlaying():
             time.sleep(3)
 
         print('loading the game')
