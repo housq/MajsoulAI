@@ -870,17 +870,18 @@ def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, length=0, web
         while not aiWrapper.isPlaying():
             time.sleep(3)
 
+        aiWrapper.actionPurge()
         print('loading the game')
         while aiWrapper.recvFromMajsoul() != State.Enter:
             time.sleep(3)
         
         print('enter game')
         while True:
-            aiWrapper.need_action = False
             aiWrapper.recvFromMajsoul()
             if aiWrapper.need_action:
                 action_id, if_riichi = aiWrapper.actionGet()
                 aiWrapper.actionDo(action_id, if_riichi)
+                aiWrapper.actionPurge()
             if aiWrapper.isEnd:
                 results = [rv for r in zip(aiWrapper.finalScore, [-1]*4) for rv in r]
                 aiWrapper.send('owari="{},{},{},{},{},{},{},{}"\x00<PROF\x00'.format(*results))
