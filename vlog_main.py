@@ -64,9 +64,10 @@ def log_time(func):
     return wrapper
 
 
-class State(Enum):  # 控制AI进程与Majsoul进程同步
-    WaitingForStart = 0
-    Playing = 1
+class State(Enum):  # 当前状态是否改变
+    Start = 0
+    Enter = 1
+    Unchanged = 2
 
 
 class CardRecorder:
@@ -164,7 +165,6 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
                 break
             except:
                 retry -= 1
-                print("retry get_len") 
         liqiProto = sdk.LiqiProto()
         if n == 0:
             return False
@@ -186,19 +186,23 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
                 break
             except:
                 retry -= 1
-                print("retry get_len") 
         l = len(self.majsoul_history_msg)
         if l < n:
             flow = pickle.loads(self.majsoul_server.get_items(l, n).data)
             self.majsoul_history_msg = self.majsoul_history_msg+flow
             pickle.dump(self.majsoul_history_msg, open(
                 'websocket_frames.pkl', 'wb'))
-        if self.majsoul_msg_p < n:
+        while self.majsoul_msg_p < n:
             flow_msg = self.majsoul_history_msg[self.majsoul_msg_p]
             result = self.liqiProto.parse(flow_msg)
             failed = self.parse(result)
             if not failed:
                 self.majsoul_msg_p += 1
+            if result.get('method', '') == '.lq.FastTest.authGame':
+                return State.Start
+            if result.get('method', '') == '.lq.FastTest.enterGame':
+                return State.Enter
+        return State.Unchanged
 
     def send(self, data: bytes):
         #向AI发送tenhou proto数据
@@ -212,6 +216,9 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
             self.dump_file.flush()
         self.AI.receive_msg(data)
         self.lastSendTime = time.time()
+
+    def actionPurge(self):
+        self.need_action = False
 
     @dump_args
     def actionHandler(self, riichi_candidates=[], can_ron=False, can_tsumo=False, can_push=False):
@@ -349,6 +356,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         assert(0 <= oya < 4)
         self.send(('<INIT seed="'+','.join(str(i) for i in seed)+'" ten="'+','.join(str(i)
                                                                                     for i in ten)+'" oya="'+str(oya)+'" hai="'+','.join(str(i) for i in self.hai)+'"/>\x00').encode())
+        self.actionPurge()
         if len(tiles) == 14:
             # operation TODO
             self.iDealTile(self.mySeat, tiles[13], leftTileCount, {}, {})
@@ -414,6 +422,8 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         self.lastOperation = operation
         if operation != None:
             self.actionHandler(riichi_candidates=[], can_ron=canHu)
+        else:
+            self.actionPurge()
         #operation TODO
 
     @dump_args
@@ -434,6 +444,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
             self.send(self.tenhouEncode(msg_dict))
         op = 'UVW'[(seat-self.mySeat-1) % 4]
         self.send(('<'+op+'/>\x00').encode())
+        self.actionPurge()
 
     @dump_args
     def iDealTile(self, seat: int, tile: str, leftTileCount: int, liqi: Dict, operation: Dict):
@@ -483,6 +494,8 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         self.send(self.tenhouEncode(msg_dict))
         if operation != None and need_action:
             self.actionHandler(riichi_candidates=riichi_candidates, can_ron=canHu, can_tsumo=canZimo, can_push=False)
+        else:
+            self.actionPurge()
 
     @dump_args
     def chiPengGang(self, type_: int, seat: int, tiles: List[str], froms: List[int], tileStates: List[int]):
@@ -568,6 +581,8 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         if seat == self.mySeat and type_ in (0, 1):
             # 吃碰之后打牌
             self.actionHandler()
+        else:
+            self.actionPurge()
 
     @dump_args
     def anGangAddGang(self, type_: int, seat: int, tiles: str):
@@ -616,6 +631,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         msg_dict = {'opcode': 'N', 'who': tenhou_seat, 'm': m}
         self.send(self.tenhouEncode(msg_dict))
         # TODO 抢杠
+        self.actionPurge()
 
     @dump_args
     def hule(self, hand: List[str], huTile: str, seat: int, zimo: bool, liqi: bool, doras: List[str], liDoras: List[str], fan: int, fu: int, oldScores: List[int], deltaScores: List[int], newScores: List[int]):
@@ -663,6 +679,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         if doraHaiUra:
             msg_dict['doraHaiUra'] = doraHaiUra
         self.send(self.tenhouEncode(msg_dict))
+        self.actionPurge()
 
     @dump_args
     def liuju(self, tingpai: List[bool], hands: List[List[str]], oldScores: List[int], deltaScores: List[int]):
@@ -690,12 +707,14 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
                         tile)[0] for tile in hands[i]]
                 msg_dict['hai'+str(tenhou_seat)] = L2S(hai)
         self.send(self.tenhouEncode(msg_dict))
+        self.actionPurge()
 
     def specialLiuju(self):
         """
         四风连打、九种九牌、四杠散了引起的流局
         """
         self.send(self.tenhouEncode({'opcode': 'RYUUKYOKU'}))
+        self.actionPurge()
 
     #-------------------------Majsoul动作函数-------------------------
 
@@ -848,9 +867,14 @@ def MainLoop(isRemoteMode=False, remoteIP: str = None, level=None, length=0, web
             aiWrapper.actionBeginGame(level, length=length)
 
         print('waiting for the game to start')
-        while not aiWrapper.isPlaying():
+        while aiWrapper.recvFromMajsoul() != State.Start:
+            time.sleep(3)
+
+        print('loading the game')
+        while aiWrapper.recvFromMajsoul() != State.Enter:
             time.sleep(3)
         
+        print('enter game')
         while True:
             aiWrapper.need_action = False
             aiWrapper.recvFromMajsoul()
