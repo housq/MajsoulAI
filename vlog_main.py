@@ -88,8 +88,8 @@ class CardRecorder:
             tile136 = (ord(tile[0])-ord('0')-1)*4+9*4*t
             if tile[0] == '5' and t < 3:  # 5 m|p|s
                 tile136 += 1
-            tile136 += self.cardDict[tile]
             if count:
+                tile136 += self.cardDict[tile]
                 self.cardDict[tile] += 1
             assert(0 <= self.cardDict[tile] <= 4)
             tile34 = tile136//4
