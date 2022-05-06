@@ -143,7 +143,6 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
         self.majsoul_msg_p = 0  # 当前准备解析的消息下标
         self.liqiProto.init()
         # AI上一次input操作的msg_dict(维护tile136一致性)
-        self.lastOp = {'opcode': None}
         self.lastDiscard = None         # 牌桌最后一次出牌tile136，用于吃碰杠牌号
         self.hai = []                   # 我当前手牌的tile136编号(和AI一致)
         self.isLiqi = False             # 当前是否处于立直状态
@@ -387,7 +386,7 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
             if seat == self.mySeat:
                 self.isLiqi = True
         op = 'DEFG'[(seat-self.mySeat) % 4]
-        if op == 'D' and self.lastOp['opcode'] == 'D':
+        if op == 'D':
             tile136=None
             for t in self.hai:
                 if self.cardRecorder.tenhou2majsoul(tile136=t)==tile:
@@ -730,7 +729,6 @@ class AIWrapper(sdk.GUIInterface, sdk.MajsoulHandler):
             self.wait_a_moment = False
             time.sleep(2)
         self.wait_for_a_while(0.3)
-        self.lastOp = {'opcode': 'D'}
         tile = self.cardRecorder.tenhou2majsoul(tile34=int(tile34))
         self.majsoul_hai = [self.cardRecorder.tenhou2majsoul(tile136=x) for x in self.hai]
         print('hai:', self.majsoul_hai)
